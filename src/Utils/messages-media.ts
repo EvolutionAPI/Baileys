@@ -80,14 +80,14 @@ const extractVideoThumb = async(
 	time: string,
 	size: { width: number, height: number },
 ) => new Promise((resolve, reject) => {
-    	const cmd = `ffmpeg -ss ${time} -i ${path} -y -vf scale=${size.width}:-1 -vframes 1 -f image2 ${destPath}`
-    	exec(cmd, (err) => {
-    		if(err) {
+	const cmd = `ffmpeg -ss ${time} -i ${path} -y -vf scale=${size.width}:-1 -vframes 1 -f image2 ${destPath}`
+	exec(cmd, (err) => {
+		if (err) {
 			reject(err)
 		} else {
 			resolve()
 		}
-    	})
+	})
 }) as Promise<void>
 
 export const extractImageThumb = async(bufferOrFilePath: Readable | Buffer | string, width = 32) => {
@@ -97,7 +97,7 @@ export const extractImageThumb = async(bufferOrFilePath: Readable | Buffer | str
 
 	const lib = await getImageProcessingLibrary()
 	if('sharp' in lib && typeof lib.sharp?.default === 'function') {
-		const img = lib.sharp!.default(bufferOrFilePath)
+		const img = lib.sharp.default(bufferOrFilePath)
 		const dimensions = await img.metadata()
 
 		const buffer = await img
@@ -154,7 +154,7 @@ export const generateProfilePicture = async(mediaUpload: WAMediaUpload) => {
 	const lib = await getImageProcessingLibrary()
 	let img: Promise<Buffer>
 	if('sharp' in lib && typeof lib.sharp?.default === 'function') {
-		img = lib.sharp!.default(bufferOrFilePath)
+		img = lib.sharp.default(bufferOrFilePath)
 			.resize(640, 640)
 			.jpeg({
 				quality: 50,
@@ -332,14 +332,16 @@ type EncryptedStreamOptions = {
 	saveOriginalFileIfRequired?: boolean
 	logger?: Logger
 	opts?: AxiosRequestConfig
+	newsletter?: boolean
 }
 
 export const encryptedStream = async(
 	media: WAMediaUpload,
 	mediaType: MediaType,
-	{ logger, saveOriginalFileIfRequired, opts }: EncryptedStreamOptions = {}
+	{ logger, saveOriginalFileIfRequired, opts, newsletter }: EncryptedStreamOptions = {}
 ) => {
 	const { stream, type } = await getStream(media, opts)
+	const { stream: streams } = await getStream(media, opts)
 
 	logger?.debug('fetched media stream')
 
@@ -403,13 +405,17 @@ export const encryptedStream = async(
 		encWriteStream.push(null)
 
 		writeStream?.end()
-		stream.destroy()
+		if(newsletter) {
+			encWriteStream.destroy()
+		} else {
+			streams.destroy()
+		}
 
 		logger?.debug('encrypted data successfully')
 
 		return {
 			mediaKey,
-			encWriteStream,
+			encWriteStream: newsletter ? streams : encWriteStream,
 			bodyPath,
 			mac,
 			fileEncSha256,
@@ -426,6 +432,7 @@ export const encryptedStream = async(
 		sha256Plain.destroy()
 		sha256Enc.destroy()
 		stream.destroy()
+		streams.destroy()
 
 		if(didSaveToTmpPath) {
 			try {
@@ -501,9 +508,9 @@ export const downloadEncryptedContent = async(
 		Origin: DEFAULT_ORIGIN,
 	}
 	if(startChunk || endChunk) {
-		headers!.Range = `bytes=${startChunk}-`
+		headers.Range = `bytes=${startChunk}-`
 		if(endChunk) {
-			headers!.Range += endChunk
+			headers.Range += endChunk
 		}
 	}
 
@@ -600,16 +607,22 @@ export const getWAUploadToServer = (
 	{ customUploadHosts, fetchAgent, logger, options }: SocketConfig,
 	refreshMediaConn: (force: boolean) => Promise<MediaConnInfo>,
 ): WAMediaUploadFunction => {
-	return async(stream, { mediaType, fileEncSha256B64, timeoutMs }) => {
+	return async(stream, { mediaType, fileEncSha256B64, timeoutMs, newsletter }) => {
 		// send a query JSON to obtain the url & auth token to upload our media
 		let uploadInfo = await refreshMediaConn(false)
 
-		let urls: { mediaUrl: string, directPath: string } | undefined
+		let urls: { mediaUrl: string, directPath: string, handle?: string } | undefined
 		const hosts = [ ...customUploadHosts, ...uploadInfo.hosts ]
 
 		const chunks: Buffer[] = []
 		for await (const chunk of stream) {
 			chunks.push(chunk)
+		}
+
+		let pathmap: any
+		pathmap = MEDIA_PATH_MAP[mediaType]
+		if(newsletter) {
+			pathmap = pathmap.replace('/mms/', '/newsletter/newsletter-')
 		}
 
 		const reqBody = Buffer.concat(chunks)
@@ -619,7 +632,7 @@ export const getWAUploadToServer = (
 			logger.debug(`uploading to "${hostname}"`)
 
 			const auth = encodeURIComponent(uploadInfo.auth) // the auth token
-			const url = `https://${hostname}${MEDIA_PATH_MAP[mediaType]}/${fileEncSha256B64}?auth=${auth}&token=${fileEncSha256B64}`
+			const url = `https://${hostname}${pathmap}/${fileEncSha256B64}?auth=${auth}&token=${fileEncSha256B64}`
 			let result: any
 			try {
 				if(maxContentLengthBytes && reqBody.length > maxContentLengthBytes) {
@@ -646,10 +659,19 @@ export const getWAUploadToServer = (
 				result = body.data
 
 				if(result?.url || result?.directPath) {
-					urls = {
-						mediaUrl: result.url,
-						directPath: result.direct_path
+					if(newsletter) {
+						urls = {
+							mediaUrl: result.url,
+							directPath: result.direct_path,
+							handle: result.handle
+						}
+					} else {
+						urls = {
+							mediaUrl: result.url,
+							directPath: result.direct_path,
+						}
 					}
+
 					break
 				} else {
 					uploadInfo = await refreshMediaConn(true)

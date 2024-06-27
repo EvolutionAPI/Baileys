@@ -44,7 +44,7 @@ export const BufferJSON = {
 
 export const getKeyAuthor = (
 	key: proto.IMessageKey | undefined | null,
-	meId: string = 'me'
+	meId = 'me'
 ) => (
 	(key?.fromMe ? meId : key?.participant || key?.remoteJid) || ''
 )
@@ -101,7 +101,7 @@ export const unixTimestampSeconds = (date: Date = new Date()) => Math.floor(date
 
 export type DebouncedTimeout = ReturnType<typeof debouncedTimeout>
 
-export const debouncedTimeout = (intervalMs: number = 1000, task?: () => void) => {
+export const debouncedTimeout = (intervalMs = 1000, task?: () => void) => {
 	let timeout: NodeJS.Timeout | undefined
 	return {
 		start: (newIntervalMs?: number, newTask?: () => void) => {
@@ -176,9 +176,9 @@ export const generateMessageIDV2 = (userId?: string): string => {
 	const data = Buffer.alloc(8 + 20 + 16)
 	data.writeBigUInt64BE(BigInt(Math.floor(Date.now() / 1000)))
 
-	if (userId) {
+	if(userId) {
 		const id = jidDecode(userId)
-		if (id?.user) {
+		if(id?.user) {
 			data.write(id.user, 8)
 			data.write('@c.us', 8 + id.user.length)
 		}

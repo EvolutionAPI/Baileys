@@ -675,7 +675,7 @@ export const makeMessagesSocket = (config: SocketConfig) => {
 									}
 
 									content.directPath = media.directPath
-									content.url = getUrlFromDirectPath(content.directPath!)
+									content.url = getUrlFromDirectPath(content.directPath)
 
 									logger.debug({ directPath: media.directPath, key: result.key }, 'media update successful')
 								} catch(err) {
@@ -732,6 +732,7 @@ export const makeMessagesSocket = (config: SocketConfig) => {
 									...axiosOptions || { }
 								},
 								logger,
+								newsletter: jid.includes('newsletter') ? true : options.newsletter,
 								uploadImage: generateHighQualityLinkPreview
 									? waUploadToServer
 									: undefined

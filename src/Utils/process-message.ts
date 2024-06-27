@@ -33,7 +33,7 @@ const REAL_MSG_REQ_ME_STUB_TYPES = new Set([
 export const cleanMessage = (message: proto.IWebMessageInfo, meId: string) => {
 	// ensure remoteJid and participant doesn't have device or agent in it
 	message.key.remoteJid = jidNormalizedUser(message.key.remoteJid!)
-	message.key.participant = message.key.participant ? jidNormalizedUser(message.key.participant!) : undefined
+	message.key.participant = message.key.participant ? jidNormalizedUser(message.key.participant) : undefined
 	const content = normalizeMessageContent(message.message)
 	// if the message has a reaction, ensure fromMe & remoteJid are from our perspective
 	if(content?.reactionMessage) {
@@ -190,7 +190,7 @@ const processMessage = async(
 	if(protocolMsg) {
 		switch (protocolMsg.type) {
 		case proto.Message.ProtocolMessage.Type.HISTORY_SYNC_NOTIFICATION:
-			const histNotification = protocolMsg!.historySyncNotification!
+			const histNotification = protocolMsg.historySyncNotification!
 			const process = shouldProcessHistoryMsg
 			const isLatest = !creds.processedHistoryMessages?.length
 
@@ -288,10 +288,10 @@ const processMessage = async(
 		}
 		ev.emit('messages.reaction', [{
 			reaction,
-			key: content.reactionMessage!.key!,
+			key: content.reactionMessage.key!,
 		}])
 	} else if(message.messageStubType) {
-		const jid = message.key!.remoteJid!
+		const jid = message.key.remoteJid!
 		//let actor = whatsappID (message.participant)
 		let participants: string[]
 		const emitParticipantsUpdate = (action: ParticipantAction) => (
@@ -376,7 +376,7 @@ const processMessage = async(
 		if(pollMsg) {
 			const meIdNormalised = jidNormalizedUser(meId)
 			const pollCreatorJid = getKeyAuthor(creationMsgKey, meIdNormalised)
-			const voterJid = getKeyAuthor(message.key!, meIdNormalised)
+			const voterJid = getKeyAuthor(message.key, meIdNormalised)
 			const pollEncKey = pollMsg.messageContextInfo?.messageSecret!
 
 			try {

@@ -26,6 +26,7 @@ export type URLGenerationOptions = {
 	}
 	uploadImage?: WAMediaUploadFunction
 	logger?: Logger
+	newsletter?: boolean
 }
 
 /**
@@ -92,7 +93,8 @@ export const getUrlInfo = async(
 					{
 						upload: opts.uploadImage,
 						mediaTypeOverride: 'thumbnail-link',
-						options: opts.fetchOpts
+						options: opts.fetchOpts,
+						newsletter: opts.newsletter
 					}
 				)
 				urlInfo.jpegThumbnail = imageMessage?.jpegThumbnail

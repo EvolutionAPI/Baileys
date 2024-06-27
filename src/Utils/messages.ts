@@ -126,7 +126,7 @@ export const prepareWAMessageMedia = async(
 			!!uploadData.media.url &&
 			!!options.mediaCache && (
 	// generate the key
-		mediaType + ':' + uploadData.media.url!.toString()
+		mediaType + ':' + uploadData.media.url.toString()
 	)
 
 	if(mediaType === 'document' && !uploadData.fileName) {
@@ -172,16 +172,17 @@ export const prepareWAMessageMedia = async(
 		{
 			logger,
 			saveOriginalFileIfRequired: requiresOriginalForSomeProcessing,
-			opts: options.options
+			opts: options.options,
+			newsletter: options.newsletter
 		}
 	)
 	 // url safe Base64 encode the SHA256 hash of the body
 	const fileEncSha256B64 = fileEncSha256.toString('base64')
-	const [{ mediaUrl, directPath }] = await Promise.all([
+	const [{ mediaUrl, directPath, handle }] = await Promise.all([
 		(async() => {
 			const result = await options.upload(
 				encWriteStream,
-				{ fileEncSha256B64, mediaType, timeoutMs: options.mediaUploadTimeoutMs }
+				{ fileEncSha256B64, mediaType, timeoutMs: options.mediaUploadTimeoutMs, newsletter: !!options.newsletter }
 			)
 			logger?.debug({ mediaType, cacheableKey }, 'uploaded media')
 			return result
@@ -247,6 +248,7 @@ export const prepareWAMessageMedia = async(
 				fileEncSha256,
 				fileSha256,
 				fileLength,
+				handle,
 				mediaKeyTimestamp: unixTimestampSeconds(),
 				...uploadData,
 				media: undefined
@@ -264,7 +266,7 @@ export const prepareWAMessageMedia = async(
 		options.mediaCache!.set(cacheableKey, WAProto.Message.encode(obj).finish())
 	}
 
-	return obj
+	return { ...obj, handle }
 }
 
 export const prepareDisappearingMessageSettingContent = (ephemeralExpiration?: number) => {
@@ -349,7 +351,11 @@ export const generateWAMessageContent = async(
 				extContent.thumbnailWidth = img.width
 				extContent.thumbnailHeight = img.height
 				extContent.thumbnailSha256 = img.fileSha256
-				extContent.thumbnailEncSha256 = img.fileEncSha256
+				if(!options.newsletter) {
+					extContent.thumbnailEncSha256 = img.fileEncSha256
+					extContent.mediaKeyTimestamp = img.mediaKeyTimestamp
+					extContent.mediaKey = img.mediaKey
+				}
 			}
 		}
 
@@ -475,7 +481,7 @@ export const generateWAMessageContent = async(
 
 	if('buttons' in message && !!message.buttons) {
 		const buttonsMessage: proto.Message.IButtonsMessage = {
-			buttons: message.buttons!.map(b => ({ ...b, type: proto.Message.ButtonsMessage.Button.Type.RESPONSE }))
+			buttons: message.buttons.map(b => ({ ...b, type: proto.Message.ButtonsMessage.Button.Type.RESPONSE }))
 		}
 		if('text' in message) {
 			buttonsMessage.contentText = message.text
@@ -649,6 +655,10 @@ export const generateWAMessage = async(
 ) => {
 	// ensure msg ID is with every log
 	options.logger = options?.logger?.child({ msgId: options.messageId })
+	if(jid.includes('newsletter')) {
+		options.newsletter = true
+	}
+
 	return generateWAMessageFromContent(
 		jid,
 		await generateWAMessageContent(
@@ -730,7 +740,7 @@ export const extractMessageContent = (content: WAMessageContent | undefined | nu
 	content = normalizeMessageContent(content)
 
 	if(content?.buttonsMessage) {
-	  return extractFromTemplateMessage(content.buttonsMessage!)
+	  return extractFromTemplateMessage(content.buttonsMessage)
 	}
 
 	if(content?.templateMessage?.hydratedFourRowTemplate) {

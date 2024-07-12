@@ -351,7 +351,7 @@ export const makeMessagesRecvSocket = (config: SocketConfig) => {
 		case 'privacy_token':
 			const tokenList = getBinaryNodeChildren(child, 'token')
 			for(const { attrs, content } of tokenList) {
-				const jid = attrs.jid
+				const jid = attrs.jid || from
 				ev.emit('chats.update', [
 					{
 						id: jid,
@@ -394,7 +394,7 @@ export const makeMessagesRecvSocket = (config: SocketConfig) => {
 			const delPicture = getBinaryNodeChild(node, 'delete')
 
 			ev.emit('contacts.update', [{
-				id: jidNormalizedUser(node?.attrs?.jid) || from || ((setPicture || delPicture)?.attrs?.hash) || '',
+				id: jidNormalizedUser(node?.attrs?.jid) || from || ((setPicture || delPicture)?.attrs?.hash) || from || '',
 				imgUrl: setPicture ? 'changed' : 'removed'
 			}])
 

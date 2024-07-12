@@ -727,7 +727,7 @@ export const makeMessagesRecvSocket = (config: SocketConfig) => {
 					await decrypt()
 					// message failed to decrypt
 					if(msg.messageStubType === proto.WebMessageInfo.StubType.CIPHERTEXT) {
-						retryMutex.mutex(
+						await retryMutex.mutex(
 							async() => {
 								if(ws.isOpen) {
 									const encNode = getBinaryNodeChild(node, 'enc')
@@ -862,27 +862,27 @@ export const makeMessagesRecvSocket = (config: SocketConfig) => {
 		await execTask()
 		ev.flush()
 
-		function execTask() {
-			return exec(node)
+		async function execTask() {
+			await exec(node)
 				.catch(err => onUnexpectedError(err, identifier))
 		}
 	}
 
 	// recv a message
 	ws.on('CB:message', (node: BinaryNode) => {
-		processNodeWithBuffer(node, 'processing message', handleMessage)
+		return processNodeWithBuffer(node, 'processing message', handleMessage)
 	})
 
 	ws.on('CB:call', async(node: BinaryNode) => {
-		processNodeWithBuffer(node, 'handling call', handleCall)
+		return processNodeWithBuffer(node, 'handling call', handleCall)
 	})
 
-	ws.on('CB:receipt', node => {
-		processNodeWithBuffer(node, 'handling receipt', handleReceipt)
+	ws.on('CB:receipt', (node: BinaryNode) => {
+		return processNodeWithBuffer(node, 'handling receipt', handleReceipt)
 	})
 
 	ws.on('CB:notification', async(node: BinaryNode) => {
-		processNodeWithBuffer(node, 'handling notification', handleNotification)
+		return processNodeWithBuffer(node, 'handling notification', handleNotification)
 	})
 
 	ws.on('CB:ack,class:message', (node: BinaryNode) => {
@@ -912,7 +912,7 @@ export const makeMessagesRecvSocket = (config: SocketConfig) => {
 			}
 
 			const protoMsg = proto.WebMessageInfo.fromObject(msg)
-			upsertMessage(protoMsg, call.offline ? 'append' : 'notify')
+			return upsertMessage(protoMsg, call.offline ? 'append' : 'notify')
 		}
 	})
 

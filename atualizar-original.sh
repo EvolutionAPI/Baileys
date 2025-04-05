@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Nome da branch principal que você quer manter atualizada
-BRANCH_PRINCIPAL="main"  # ou "master" se for o caso
+BRANCH_PRINCIPAL="master"  # ou "master" se for o caso
 
 echo "🔄 Atualizando seu repositório com o original (upstream)..."
 
